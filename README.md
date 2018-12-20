@@ -1,6 +1,6 @@
 # Animating Pictures with Motion Textures
 
-An implementation of "Animating Pictures with Stochastic Motion Textures" by Yung-Yu Chuang et. al. 2005, completed for UC Berkeley's Computation Photography course (CS194-26) in Fall 2018. 
+An implementation of ["Animating Pictures with Stochastic Motion Textures" by Yung-Yu Chuang et. al. 2005](http://grail.cs.washington.edu/projects/StochasticMotionTextures/), completed for UC Berkeley's Computation Photography course (CS194-26) in Fall 2018. 
 
 ## Steps and Usage
 
@@ -30,10 +30,12 @@ An implementation of "Animating Pictures with Stochastic Motion Textures" by Yun
 ### Duck Pond
 
 ![Ducks](gifs/ducks.gif)
+
 [Source](https://community.glwb.net/gallery/index.php/Lorain-County-Summer-Photos/Duck-Pond-Fall-4)
 
 ### Sunflowers
 
 ![Sunflowers](gifs/sunflowers.gif)
+
 [Source](https://www.readingeagle.com/news/article/elverson-sunflower-field-a-sunny-spot-in-a-sometimes-dark-world)
 
