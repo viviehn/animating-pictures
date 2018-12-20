@@ -7,6 +7,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin
 from sklearn.datasets import load_sample_image
 from sklearn.utils import shuffle
+import imageio
 
         
 ####################################
@@ -150,59 +151,65 @@ def likelihood(C, F, F_bar, sig_F, B, B_bar, sig_B, A):
 
 def solve_unknown_region(im, fg_pixels, bg_pixels, uk_mask, alpha, g):
     N_radius = 25
-    num_iter = 50 # Per pixel iterations
+    num_iter = 100 # Per pixel iterations
     num_clusters = 1
 
-    uk_Y, uk_X = np.where(uk_mask)
+    cur_mask = uk_mask
+    done = False
+    while not done:
+        uk_Y, uk_X = np.where(cur_mask)
 
-    for i in range(len(uk_Y)):
-        if (i % 100 == 0):
-            print(i, " ", len(uk_Y))
-        x, y = uk_X[i], uk_Y[i]
-        a = neighborhood(alpha, x, y, N_radius)[:,:,0]
+        for i in range(len(uk_Y)):
+            if (i % 100 == 0):
+                print(i, " ", len(uk_Y))
+            x, y = uk_X[i], uk_Y[i]
+            a = neighborhood(alpha, x, y, N_radius)[:,:,0]
 
-        f_w = np.multiply(a*a, g).flatten()
-        valid = np.nan_to_num(f_w) > 0
-        f_w = f_w[valid]
-        f = neighborhood(fg_pixels, x, y, N_radius)
-        f = np.reshape(f, ((N_radius*2 + 1)**2,3))
-        f = f[valid,:]
+            f_w = np.multiply(a*a, g).flatten()
+            valid = np.nan_to_num(f_w) > 0
+            f_w = f_w[valid]
+            f = neighborhood(fg_pixels, x, y, N_radius)
+            f = np.reshape(f, ((N_radius*2 + 1)**2,3))
+            f = f[valid,:]
 
-        b_w = np.multiply((1 - a)*(1-a), g).flatten()
-        valid = np.nan_to_num(b_w) > 0
-        b_w = b_w[valid]
-        b = neighborhood(bg_pixels, x, y, N_radius)
-        b = np.reshape(b, ((N_radius*2 + 1)**2,3))
-        b = b[valid,:]
+            b_w = np.multiply((1 - a)*(1-a), g).flatten()
+            valid = np.nan_to_num(b_w) > 0
+            b_w = b_w[valid]
+            b = neighborhood(bg_pixels, x, y, N_radius)
+            b = np.reshape(b, ((N_radius*2 + 1)**2,3))
+            b = b[valid,:]
 
 
-        if len(f_w) < 30 or len(b_w) < 30:
-            print("Passing")
-            continue
+            if len(f_w) < 30 or len(b_w) < 30:
+                print("Passing")
+                continue
 
-        mean_a = np.nanmean(a.flatten())
+            mean_a = np.nanmean(a.flatten())
 
-        fg_calculations = calculate(im, num_clusters, f_w, f, N_radius)
-        bg_calculations = calculate(im, num_clusters, b_w, b, N_radius)
+            fg_calculations = calculate(im, num_clusters, f_w, f, N_radius)
+            bg_calculations = calculate(im, num_clusters, b_w, b, N_radius)
 
-        maxL = float('-inf')
-        C = im[y,x]
+            maxL = float('-inf')
+            C = im[y,x]
 
-        for fg_pair in fg_calculations:
-            for bg_pair in bg_calculations:
-                f_bar = fg_pair[0]
-                sig_f = fg_pair[1]
-                b_bar = bg_pair[0]
-                sig_b = bg_pair[1]
-                F, B, A = solve_pixel(f_bar, sig_f, b_bar, sig_b, mean_a, C, num_iter)
-                L = likelihood(C, F, f_bar, sig_f, B, b_bar, sig_b, A)
-                if L > maxL:
-                    maxL = L
-                    bestF, bestB, bestA = F, B, A
+            for fg_pair in fg_calculations:
+                for bg_pair in bg_calculations:
+                    f_bar = fg_pair[0]
+                    sig_f = fg_pair[1]
+                    b_bar = bg_pair[0]
+                    sig_b = bg_pair[1]
+                    F, B, A = solve_pixel(f_bar, sig_f, b_bar, sig_b, mean_a, C, num_iter)
+                    L = likelihood(C, F, f_bar, sig_f, B, b_bar, sig_b, A)
+                    if L > maxL:
+                        maxL = L
+                        bestF, bestB, bestA = F, B, A
 
-        fg_pixels[y,x] = F
-        bg_pixels[y,x] = B
-        alpha[y,x] = A
+            fg_pixels[y,x] = F
+            bg_pixels[y,x] = B
+            alpha[y,x] = A
+            cur_mask[y,x] = 0
+            if np.sum(cur_mask == 0):
+                done = True
     return fg, bg, alpha
 
 def computeMatte(im, mask):
@@ -227,9 +234,12 @@ def computeMatte(im, mask):
 if __name__ == '__main__':
     im_name = sys.argv[1]
     mask_name = sys.argv[2]
-    im = plt.imread(im_name)
+    out_dir = None
+    if (len(sys.argv)> 3):
+        out_dir = sys.argv[3]
+    im = imageio.imread(im_name)[:,:,:3]
     w, h, d = im.shape
-    mask = plt.imread(mask_name)[:,:,0]
+    mask = imageio.imread(mask_name)[:,:,0]
 
     fg_mask, bg_mask, uk_mask = split_mask(mask)
     fg = get_masked_pix(im, fg_mask)
@@ -245,7 +255,14 @@ if __name__ == '__main__':
     
     plt.imshow(fg)
     plt.show()
+    imageio.imwrite(out_dir+"/test.jpg", fg)
     fg_new, bg_new, alpha_new = solve_unknown_region(im, fg, bg, uk_mask, alpha, kernel)
-    plt.imshow(fg_new)
-    plt.show()
+    if out_dir is not None:
+        imageio.imwrite(out_dir+"/fg_new.jpg", fg_new)
+        imageio.imwrite(out_dir+"/bg_new.jpg", bg_new)
+        imageio.imwrite(out_dir+"/alpha_new.jpg", alpha_new)
+    else:
+        imageio.imwrite("fg_new.jpg", fg_new)
+        imageio.imwrite("bg_new.jpg", bg_new)
+        imageio.imwrite("alpha_new.jpg", alpha_new)
     print("done")
