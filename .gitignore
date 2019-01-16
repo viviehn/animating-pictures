@@ -2,3 +2,6 @@
 .*.swp
 .*.swo
 __pycache__
+demos/
+images/
+batch/
